@@ -38,11 +38,11 @@ public class InputListener : MonoBehaviour
 
     private void OnSpringPull(InputAction.CallbackContext context)
     {
-        _pinballController.PullSpring();
+        _pinballController.PullLauncher();
     }
     private void OnSpringRelease(InputAction.CallbackContext context)
     {
-        _pinballController.ReleaseSpring();
+        _pinballController.ReleaseLauncher();
     }
 
     private void Bind() 

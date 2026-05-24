@@ -4,177 +4,151 @@ using UnityEngine;
 public class PinballController : MonoBehaviour
 {
     [Header("Flippers")]
-    [SerializeField] private GameObject leftFlipper;
-    [SerializeField] private GameObject rightFlipper;
-    [Space]
+    [SerializeField] private HingeJoint leftFlipper;
+    [SerializeField] private HingeJoint rightFlipper;
+
+    [Header("Flipper Settings")]
     [SerializeField] private float flipperAngle = 45f;
-    [SerializeField] private float flipperRotateTime = 0.2f;
+    [SerializeField] private float flipperSpringForce = 5000f;
+    [SerializeField] private float flipperDamper = 150f;
 
-    private Quaternion _leftInitialRotation;
-    private Quaternion _rightInitialRotation;
-    private Coroutine _leftFlipperRoutine;
-    private Coroutine _rightFlipperRoutine;
-
-    [Header("Spring")]
-    [SerializeField] private GameObject spring;
+    [Header("Launcher")]
+    [SerializeField] private Transform launcherVisual;
+    [SerializeField] private LauncherTrigger launcherTrigger;
     [Space]
-    [SerializeField] private float springPullDistance = 1f;
-    [SerializeField] private float springPullDuration = 1f;
-    [SerializeField] private float springReleaseDuration = 0.15f;
-    [SerializeField] private float maxSpringForce = 15f;
+    [SerializeField] private float maxPullDistance = 0.3f;
+    [SerializeField] private float pullDuration = 0.5f;
+    [SerializeField] private float releaseDuration = 0.08f;
+    [SerializeField] private float maxLaunchForce = 30f;
 
-    private Vector3 _springInitialLocalPos;
-    private float _currentPullPercent;
-    private float _currentSpringForce;
-    private Coroutine _pullRoutine;
-    private Coroutine _releaseRoutine;
+    private Vector3 launcherStartPos;
+    private float currentPullPercent;
+    private Coroutine pullRoutine;
+    private Coroutine releaseRoutine;
 
     private void Start()
     {
-        _leftInitialRotation = leftFlipper.transform.localRotation;
-        _rightInitialRotation = rightFlipper.transform.localRotation;
+        launcherStartPos = launcherVisual.localPosition;
 
-        _springInitialLocalPos = spring.transform.localPosition;
+        SetupFlipper(leftFlipper);
+        SetupFlipper(rightFlipper);
+    }
+
+    private void SetupFlipper(HingeJoint hinge)
+    {
+        JointSpring spring = hinge.spring;
+
+        spring.spring = flipperSpringForce;
+        spring.damper = flipperDamper;
+        spring.targetPosition = 0f;
+
+        hinge.spring = spring;
+
+        hinge.useSpring = true;
     }
 
     public void PressLeftFlipper()
     {
-        if (_leftFlipperRoutine != null)
-            StopCoroutine(_leftFlipperRoutine);
-
-        Quaternion targetRotation = _leftInitialRotation * Quaternion.Euler(0f, -flipperAngle, 0f);
-
-        _leftFlipperRoutine = StartCoroutine(RotateFlipper(leftFlipper.transform, targetRotation, flipperRotateTime));
+        SetFlipperAngle(leftFlipper, -flipperAngle);
     }
 
     public void ReleaseLeftFlipper()
     {
-        if (_leftFlipperRoutine != null)
-            StopCoroutine(_leftFlipperRoutine);
-
-        _leftFlipperRoutine = StartCoroutine(RotateFlipper(leftFlipper.transform, _leftInitialRotation, flipperRotateTime));
+        SetFlipperAngle(leftFlipper, 0f);
     }
 
     public void PressRightFlipper()
     {
-        if (_rightFlipperRoutine != null)
-            StopCoroutine(_rightFlipperRoutine);
-
-        Quaternion targetRotation = _rightInitialRotation * Quaternion.Euler(0f, flipperAngle, 0f);
-
-        _rightFlipperRoutine = StartCoroutine(RotateFlipper(rightFlipper.transform, targetRotation, flipperRotateTime));
+        SetFlipperAngle(rightFlipper, flipperAngle);
     }
 
     public void ReleaseRightFlipper()
     {
-        if (_rightFlipperRoutine != null)
-            StopCoroutine(_rightFlipperRoutine);
-
-        _rightFlipperRoutine = StartCoroutine(RotateFlipper(rightFlipper.transform, _rightInitialRotation, flipperRotateTime));
+        SetFlipperAngle(rightFlipper, 0f);
     }
 
-    private IEnumerator RotateFlipper(Transform target, Quaternion targetRotation, float duration)
+    private void SetFlipperAngle(HingeJoint hinge, float angle)
     {
-        Quaternion startRotation = target.localRotation;
-        float time = 0f;
-
-        while (time < duration)
-        {
-            time += Time.deltaTime;
-            float t = time / duration;
-            target.localRotation = Quaternion.Lerp(startRotation, targetRotation, t);
-
-            yield return null;
-        }
-
-        target.localRotation = targetRotation;
+        JointSpring spring = hinge.spring;
+        spring.targetPosition = angle;
+        hinge.spring = spring;
     }
 
-    public void PullSpring()
+    public void PullLauncher()
     {
-        if (_releaseRoutine != null)
-        {
-            StopCoroutine(_releaseRoutine);
-            _releaseRoutine = null;
-        }
-
-        if (_pullRoutine != null)
+        if (pullRoutine != null)
             return;
 
-        _pullRoutine = StartCoroutine(PullSpringRoutine());
+        if (releaseRoutine != null)
+        {
+            StopCoroutine(releaseRoutine);
+            releaseRoutine = null;
+        }
+
+        pullRoutine = StartCoroutine(PullLauncherRoutine());
     }
 
-    private IEnumerator PullSpringRoutine()
+    public void ReleaseLauncher()
     {
-        while (_currentPullPercent < 1f)
+        if (pullRoutine != null)
         {
-            _currentPullPercent += Time.deltaTime / springPullDuration;
-            _currentPullPercent = Mathf.Clamp01(_currentPullPercent);
+            StopCoroutine(pullRoutine);
+            pullRoutine = null;
+        }
 
-            UpdateSpringPosition();
+        if (releaseRoutine != null)
+            StopCoroutine(releaseRoutine);
 
-            _currentSpringForce = _currentPullPercent * maxSpringForce;
+        releaseRoutine =
+            StartCoroutine(ReleaseLauncherRoutine());
+    }
+
+    private IEnumerator PullLauncherRoutine()
+    {
+        while (currentPullPercent < 1f)
+        {
+            currentPullPercent += Time.deltaTime / pullDuration;
+            currentPullPercent = Mathf.Clamp01(currentPullPercent);
+
+            UpdateLauncherVisual();
 
             yield return null;
         }
 
-        _pullRoutine = null;
+        pullRoutine = null;
     }
 
-    public void ReleaseSpring()
+    private IEnumerator ReleaseLauncherRoutine()
     {
-        if (_pullRoutine != null)
+        float launchForce =
+            currentPullPercent * maxLaunchForce;
+
+        if (launcherTrigger.CurBall != null) 
         {
-            StopCoroutine(_pullRoutine);
-            _pullRoutine = null;
+            launcherTrigger.CurBall.Rb.AddForce( launcherVisual.forward * launchForce, ForceMode.Impulse);
         }
 
-        if (_releaseRoutine != null)
-            StopCoroutine(_releaseRoutine);
-
-        _releaseRoutine = StartCoroutine(ReleaseSpringRoutine());
-    }
-
-    private IEnumerator ReleaseSpringRoutine()
-    {
-        while (_currentPullPercent > 0f)
+        while (currentPullPercent > 0f)
         {
-            _currentPullPercent -= Time.deltaTime / springReleaseDuration;
-            _currentPullPercent = Mathf.Clamp01(_currentPullPercent);
+            currentPullPercent -= Time.deltaTime / releaseDuration;
+            currentPullPercent = Mathf.Clamp01(currentPullPercent);
 
-            UpdateSpringPosition();
+            UpdateLauncherVisual();
 
             yield return null;
         }
 
-        _currentPullPercent = 0f;
+        currentPullPercent = 0f;
 
-        UpdateSpringPosition();
+        UpdateLauncherVisual();
 
-        Debug.Log("Spring released with force: " + _currentSpringForce);
-
-        /*
-         Тут толкаешь шарик:
-
-         ballRb.AddForce(
-             transform.forward * currentSpringForce,
-             ForceMode.Impulse
-         );
-        */
-
-        _currentSpringForce = 0f;
-        _releaseRoutine = null;
+        releaseRoutine = null;
     }
 
-    private void UpdateSpringPosition()
+    private void UpdateLauncherVisual()
     {
-        Vector3 pos = _springInitialLocalPos;
-        pos.z = _springInitialLocalPos.z - (_currentPullPercent * springPullDistance);
-        spring.transform.localPosition = pos;
-    }
-
-    private void OnDestroy()
-    {
-        StopAllCoroutines();
+        Vector3 pos = launcherStartPos;
+        pos.z = launcherStartPos.z - (currentPullPercent * maxPullDistance);
+        launcherVisual.localPosition = pos;
     }
 }
