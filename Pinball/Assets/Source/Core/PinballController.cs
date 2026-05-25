@@ -21,14 +21,14 @@ public class PinballController : MonoBehaviour
     [SerializeField] private float releaseDuration = 0.08f;
     [SerializeField] private float maxLaunchForce = 30f;
 
-    private Vector3 launcherStartPos;
-    private float currentPullPercent;
-    private Coroutine pullRoutine;
-    private Coroutine releaseRoutine;
+    private Vector3 _launcherStartPos;
+    private float _currentPullPercent;
+    private Coroutine _pullRoutine;
+    private Coroutine _releaseRoutine;
 
     private void Start()
     {
-        launcherStartPos = launcherVisual.localPosition;
+        _launcherStartPos = launcherVisual.localPosition;
 
         SetupFlipper(leftFlipper);
         SetupFlipper(rightFlipper);
@@ -43,7 +43,6 @@ public class PinballController : MonoBehaviour
         spring.targetPosition = 0f;
 
         hinge.spring = spring;
-
         hinge.useSpring = true;
     }
 
@@ -76,79 +75,76 @@ public class PinballController : MonoBehaviour
 
     public void PullLauncher()
     {
-        if (pullRoutine != null)
-            return;
+        if (_pullRoutine != null) return;
 
-        if (releaseRoutine != null)
+        if (_releaseRoutine != null)
         {
-            StopCoroutine(releaseRoutine);
-            releaseRoutine = null;
+            StopCoroutine(_releaseRoutine);
+            _releaseRoutine = null;
         }
 
-        pullRoutine = StartCoroutine(PullLauncherRoutine());
+        _pullRoutine = StartCoroutine(PullLauncherRoutine());
     }
 
     public void ReleaseLauncher()
     {
-        if (pullRoutine != null)
+        if (_pullRoutine != null)
         {
-            StopCoroutine(pullRoutine);
-            pullRoutine = null;
+            StopCoroutine(_pullRoutine);
+            _pullRoutine = null;
         }
 
-        if (releaseRoutine != null)
-            StopCoroutine(releaseRoutine);
+        if (_releaseRoutine != null)
+            StopCoroutine(_releaseRoutine);
 
-        releaseRoutine =
-            StartCoroutine(ReleaseLauncherRoutine());
+        _releaseRoutine = StartCoroutine(ReleaseLauncherRoutine());
     }
 
     private IEnumerator PullLauncherRoutine()
     {
-        while (currentPullPercent < 1f)
+        while (_currentPullPercent < 1f)
         {
-            currentPullPercent += Time.deltaTime / pullDuration;
-            currentPullPercent = Mathf.Clamp01(currentPullPercent);
+            _currentPullPercent += Time.deltaTime / pullDuration;
+            _currentPullPercent = Mathf.Clamp01(_currentPullPercent);
 
             UpdateLauncherVisual();
 
             yield return null;
         }
 
-        pullRoutine = null;
+        _pullRoutine = null;
     }
 
     private IEnumerator ReleaseLauncherRoutine()
     {
-        float launchForce =
-            currentPullPercent * maxLaunchForce;
+        float launchForce = _currentPullPercent * maxLaunchForce;
 
         if (launcherTrigger.CurBall != null) 
         {
             launcherTrigger.CurBall.Rb.AddForce( launcherVisual.forward * launchForce, ForceMode.Impulse);
         }
 
-        while (currentPullPercent > 0f)
+        while (_currentPullPercent > 0f)
         {
-            currentPullPercent -= Time.deltaTime / releaseDuration;
-            currentPullPercent = Mathf.Clamp01(currentPullPercent);
+            _currentPullPercent -= Time.deltaTime / releaseDuration;
+            _currentPullPercent = Mathf.Clamp01(_currentPullPercent);
 
             UpdateLauncherVisual();
 
             yield return null;
         }
 
-        currentPullPercent = 0f;
+        _currentPullPercent = 0f;
 
         UpdateLauncherVisual();
 
-        releaseRoutine = null;
+        _releaseRoutine = null;
     }
 
     private void UpdateLauncherVisual()
     {
-        Vector3 pos = launcherStartPos;
-        pos.z = launcherStartPos.z - (currentPullPercent * maxPullDistance);
+        Vector3 pos = _launcherStartPos;
+        pos.z = _launcherStartPos.z - (_currentPullPercent * maxPullDistance);
         launcherVisual.localPosition = pos;
     }
 }

@@ -45,6 +45,11 @@ public class InputListener : MonoBehaviour
         _pinballController.ReleaseLauncher();
     }
 
+    private void OnReload(InputAction.CallbackContext context)
+    {
+        Level.ReloadLevel();
+    }
+
     private void Bind() 
     {
         _mainInputActions.Game.LeftFlipper.performed += OnLeftFlipperPress;
@@ -55,6 +60,8 @@ public class InputListener : MonoBehaviour
 
         _mainInputActions.Game.Spring.performed += OnSpringPull;
         _mainInputActions.Game.Spring.canceled += OnSpringRelease;
+
+        _mainInputActions.Game.Reload.performed += OnReload;
     }
     private void Expose() 
     {
@@ -66,6 +73,8 @@ public class InputListener : MonoBehaviour
 
         _mainInputActions.Game.Spring.performed += OnSpringPull;
         _mainInputActions.Game.Spring.canceled -= OnSpringRelease;
+
+        _mainInputActions.Game.Reload.performed -= OnReload;
     }
 
     private void OnDestroy()
