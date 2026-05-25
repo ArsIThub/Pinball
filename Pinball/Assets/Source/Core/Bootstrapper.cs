@@ -10,7 +10,8 @@ public class Bootstrapper : MonoBehaviour
 
     private void Awake()
     {
-        Physics.gravity = new Vector3(0f, -9.81f, -4f);
+        Physics.gravity = new Vector3(0f, -10f, -4f);
+        Physics.defaultMaxDepenetrationVelocity = 0.5f;
 
         gameManager.Construct(pool, uiController);
         inputListener.Construct(pinballController);
